@@ -1,0 +1,17 @@
+export enum PluginStatus {
+
+  CREATED = "CREATED",
+
+  INITIALIZING = "INITIALIZING",
+
+  READY = "READY",
+
+  RUNNING = "RUNNING",
+
+  PAUSED = "PAUSED",
+
+  STOPPED = "STOPPED",
+
+  ERROR = "ERROR",
+
+}
