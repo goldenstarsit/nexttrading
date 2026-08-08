@@ -6,11 +6,58 @@ import {
   BinanceWebSocketSubscription,
 } from "./binance-websocket-subscription";
 
+import type {
+  WebSocketMessageHandler,
+} from "../../contracts/websocket-message-handler";
+
+import {
+  WebSocketMessageDispatcher,
+} from "../../websocket/websocket-message-dispatcher";
+
 export class BinanceWebSocketClient
   extends BaseWebSocketClient {
 
   private readonly subscription =
     new BinanceWebSocketSubscription();
+
+  private messageHandler?:
+    WebSocketMessageHandler;
+
+  private dispatcher?:
+    WebSocketMessageDispatcher;
+
+  public setMessageHandler(
+    handler: WebSocketMessageHandler,
+  ): void {
+
+    this.messageHandler = handler;
+
+    this.dispatcher =
+      new WebSocketMessageDispatcher(
+        handler,
+      );
+
+  }
+
+  public async handleMessage(
+    message: string,
+  ): Promise<void> {
+
+    if (this.dispatcher) {
+      await this.dispatcher.dispatch(
+        message,
+      );
+
+      return;
+    }
+
+    if (this.messageHandler) {
+      await this.messageHandler.handleMessage(
+        message,
+      );
+    }
+
+  }
 
   public constructor(
     private readonly url: string,
@@ -22,6 +69,27 @@ export class BinanceWebSocketClient
     string {
 
     return this.url;
+
+  }
+
+  public getStreamUrl():
+    string {
+
+    const symbols =
+      this.subscription.getSymbols();
+
+    if (symbols.length === 0) {
+      return this.url;
+    }
+
+    const streams = symbols
+      .map(
+        (symbol) =>
+          `${symbol.trim().toLowerCase()}@trade`,
+      )
+      .join("/");
+
+    return `${this.url}?streams=${streams}`;
 
   }
 
