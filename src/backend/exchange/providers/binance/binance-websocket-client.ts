@@ -26,6 +26,10 @@ export class BinanceWebSocketClient
   private dispatcher?:
     WebSocketMessageDispatcher;
 
+  private socket:
+    WebSocket | null =
+    null;
+
   public setMessageHandler(
     handler: WebSocketMessageHandler,
   ): void {
@@ -63,6 +67,204 @@ export class BinanceWebSocketClient
     private readonly url: string,
   ) {
     super();
+  }
+
+  public override async connect():
+    Promise<void> {
+
+    if (this.socket) {
+      return;
+    }
+
+    const socket =
+      new WebSocket(
+        this.getStreamUrl(),
+      );
+
+    this.socket =
+      socket;
+
+    await new Promise<void>(
+      (resolve, reject) => {
+
+        let settled =
+          false;
+
+        const settleResolve =
+          () => {
+
+            if (settled) {
+              return;
+            }
+
+            settled = true;
+            resolve();
+
+          };
+
+        const settleReject =
+          (error: Error) => {
+
+            if (settled) {
+              return;
+            }
+
+            settled = true;
+            reject(error);
+
+          };
+
+        socket.onopen =
+          async () => {
+
+            if (
+              this.socket !== socket
+            ) {
+              socket.close();
+              return;
+            }
+
+            this.connected =
+              true;
+
+            this.resetReconnectAttempts();
+
+            try {
+
+              if (this.eventHandler) {
+                await this.eventHandler.onConnect();
+              }
+
+              settleResolve();
+
+            } catch (error) {
+
+              settleReject(
+                error as Error,
+              );
+
+            }
+
+          };
+
+        socket.onmessage =
+          async (event) => {
+
+            if (
+              this.socket !== socket
+            ) {
+              return;
+            }
+
+            try {
+
+              await this.handleMessage(
+                String(event.data),
+              );
+
+            } catch (error) {
+
+              if (this.eventHandler) {
+                await this.eventHandler.onError(
+                  error as Error,
+                );
+              }
+
+            }
+
+          };
+
+        socket.onerror =
+          async () => {
+
+            if (
+              this.socket !== socket
+            ) {
+              return;
+            }
+
+            const error =
+              new Error(
+                "Binance WebSocket error",
+              );
+
+            try {
+
+              if (this.eventHandler) {
+                await this.eventHandler.onError(
+                  error,
+                );
+              }
+
+            } catch {
+              // Event-handler errors must not
+              // break WebSocket lifecycle.
+            }
+
+            settleReject(
+              error,
+            );
+
+          };
+
+        socket.onclose =
+          async () => {
+
+            if (
+              this.socket !== socket
+            ) {
+              return;
+            }
+
+            this.socket =
+              null;
+
+            this.connected =
+              false;
+
+            try {
+
+              if (this.eventHandler) {
+                await this.eventHandler.onDisconnect();
+              }
+
+            } finally {
+
+              settleResolve();
+
+            }
+
+          };
+
+      },
+    );
+
+  }
+
+  public override async disconnect():
+    Promise<void> {
+
+    const socket =
+      this.socket;
+
+    this.socket =
+      null;
+
+    this.connected =
+      false;
+
+    if (!socket) {
+
+      if (this.eventHandler) {
+        await this.eventHandler.onDisconnect();
+      }
+
+      return;
+
+    }
+
+    socket.close();
+
   }
 
   public getUrl():

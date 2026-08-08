@@ -2,10 +2,6 @@ import {
   BinanceWebSocketClient,
 } from "./binance-websocket-client";
 
-import {
-  WebSocketMessageDispatcher,
-} from "../../websocket/websocket-message-dispatcher";
-
 import type {
   WebSocketMessageHandler,
 } from "../../contracts/websocket-message-handler";
@@ -19,10 +15,6 @@ export class BinanceWebSocketStreamManager {
 
   private readonly client:
     BinanceWebSocketClient;
-
-
-  private readonly dispatcher:
-    WebSocketMessageDispatcher;
 
 
   private lastError:
@@ -83,10 +75,9 @@ export class BinanceWebSocketStreamManager {
     });
 
 
-    this.dispatcher =
-      new WebSocketMessageDispatcher(
-        handler,
-      );
+    this.client.setMessageHandler(
+      handler,
+    );
 
   }
 
@@ -242,7 +233,7 @@ export class BinanceWebSocketStreamManager {
     message: string,
   ): Promise<void> {
 
-    await this.dispatcher.dispatch(
+    await this.client.handleMessage(
       message,
     );
 
@@ -365,13 +356,6 @@ export class BinanceWebSocketStreamManager {
 
   }
 
-
-  public getDispatcher():
-    WebSocketMessageDispatcher {
-
-    return this.dispatcher;
-
-  }
 
   public getClient():
     BinanceWebSocketClient {
