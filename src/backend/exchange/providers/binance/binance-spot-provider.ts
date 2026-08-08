@@ -3,6 +3,10 @@ import type {
 } from "./binance-rest-client";
 
 import type {
+  BinanceWebSocketStreamManager,
+} from "./binance-websocket-stream-manager";
+
+import type {
   ExchangeProvider,
 } from "../../contracts/exchange-provider";
 
@@ -129,6 +133,9 @@ export class BinanceSpotProvider
   public constructor(
     private readonly client:
       BinanceRestClient,
+
+    private readonly streamManager:
+      BinanceWebSocketStreamManager,
   ) {}
 
   public readonly id =
@@ -187,6 +194,13 @@ export class BinanceSpotProvider
 
     this.marketDataHandler =
       handler;
+
+  }
+
+  public getMarketDataHandler():
+    MarketDataHandler | undefined {
+
+    return this.marketDataHandler;
 
   }
 
@@ -401,16 +415,20 @@ export class BinanceSpotProvider
     }
 
     this.subscription = {
-      symbols,
+      symbols: [
+        ...symbols,
+      ],
     };
+
+    this.streamManager.subscribe(
+      symbols,
+    );
 
   }
 
   public async unsubscribeMarketData(
     symbols: readonly string[],
   ): Promise<void> {
-
-    void symbols;
 
     if (!this.started) {
 
@@ -420,8 +438,32 @@ export class BinanceSpotProvider
 
     }
 
-    this.subscription =
-      undefined;
+    if (!this.subscription) {
+      return;
+    }
+
+    this.streamManager.unsubscribe(
+      symbols,
+    );
+
+    const remaining =
+      this.subscription.symbols.filter(
+        (symbol) =>
+          !symbols.includes(symbol),
+      );
+
+    if (remaining.length === 0) {
+
+      this.subscription =
+        undefined;
+
+      return;
+
+    }
+
+    this.subscription = {
+      symbols: remaining,
+    };
 
   }
 

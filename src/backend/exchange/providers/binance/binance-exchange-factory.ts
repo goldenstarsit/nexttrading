@@ -15,14 +15,27 @@ import {
 } from "./binance-websocket-stream-manager";
 
 import {
-  DefaultWebSocketMessageHandler,
-} from "../../websocket/default-websocket-message-handler";
+  BinanceTradeMessageHandler,
+} from "./binance-trade-message-handler";
 
 import type {
   ExchangeConfiguration,
 } from "../../types/exchange-configuration";
 
 export class BinanceExchangeFactory {
+
+  private getMarketDataHandler(
+    provider: BinanceSpotProvider,
+  ) {
+
+    return (
+      provider as BinanceSpotProvider & {
+        getMarketDataHandler?:
+          () => import("../../types/market-data-handler").MarketDataHandler | undefined;
+      }
+    ).getMarketDataHandler?.();
+
+  }
 
   public create(
     configuration: ExchangeConfiguration,
@@ -33,19 +46,41 @@ export class BinanceExchangeFactory {
         configuration,
       );
 
-    const spotProvider =
-      new BinanceSpotProvider(
-        httpClient,
-      );
-
     const messageHandler =
-      new DefaultWebSocketMessageHandler();
+      new BinanceTradeMessageHandler();
 
     const streamManager =
       new BinanceWebSocketStreamManager(
         configuration.websocketBaseUrl,
         messageHandler,
       );
+
+    const spotProvider =
+      new BinanceSpotProvider(
+        httpClient,
+        streamManager,
+      );
+
+    messageHandler.setMarketDataHandler(
+      (
+        symbol,
+        price,
+      ) => {
+
+        const handler =
+          this.getMarketDataHandler(
+            spotProvider,
+          );
+
+        if (handler) {
+          handler(
+            symbol,
+            price,
+          );
+        }
+
+      },
+    );
 
     return new BinanceExchange(
       spotProvider,
