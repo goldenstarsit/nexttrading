@@ -1,3 +1,5 @@
+import { BinanceMarketProvider } from "../adapters/binance/binance-market-provider";
+
 import {
   MarketRegistry,
 } from "../registry/market-registry";
@@ -10,6 +12,18 @@ export class MarketFactory {
 
   private readonly registry =
     new MarketRegistry();
+
+
+  public registerBinance(): BinanceMarketProvider {
+    const provider = new BinanceMarketProvider();
+
+    this.register(
+      provider.name,
+      provider,
+    );
+
+    return provider;
+  }
 
 
   public getRegistry():
