@@ -58,6 +58,12 @@ export class BinanceWebSocketStreamManager {
 
         manager.notifyMonitor();
 
+        if (!manager.clientWasIntentionallyDisconnected()) {
+
+          void manager.safeReconnect();
+
+        }
+
         return;
 
       },
@@ -144,6 +150,13 @@ export class BinanceWebSocketStreamManager {
     Promise<void> {
 
     await this.client.connect();
+
+  }
+
+  public clientWasIntentionallyDisconnected():
+    boolean {
+
+    return this.client.wasIntentionallyDisconnected();
 
   }
 

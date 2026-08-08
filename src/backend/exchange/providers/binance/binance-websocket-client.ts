@@ -30,11 +30,18 @@ export class BinanceWebSocketClient
     WebSocket | null =
     null;
 
+  private reconnecting =
+    false;
+
+  private intentionalDisconnect =
+    false;
+
   public setMessageHandler(
     handler: WebSocketMessageHandler,
   ): void {
 
-    this.messageHandler = handler;
+    this.messageHandler =
+      handler;
 
     this.dispatcher =
       new WebSocketMessageDispatcher(
@@ -48,17 +55,21 @@ export class BinanceWebSocketClient
   ): Promise<void> {
 
     if (this.dispatcher) {
+
       await this.dispatcher.dispatch(
         message,
       );
 
       return;
+
     }
 
     if (this.messageHandler) {
+
       await this.messageHandler.handleMessage(
         message,
       );
+
     }
 
   }
@@ -66,15 +77,22 @@ export class BinanceWebSocketClient
   public constructor(
     private readonly url: string,
   ) {
+
     super();
+
   }
 
   public override async connect():
     Promise<void> {
 
     if (this.socket) {
+
       return;
+
     }
+
+    this.intentionalDisconnect =
+      false;
 
     const socket =
       new WebSocket(
@@ -94,10 +112,14 @@ export class BinanceWebSocketClient
           () => {
 
             if (settled) {
+
               return;
+
             }
 
-            settled = true;
+            settled =
+              true;
+
             resolve();
 
           };
@@ -106,10 +128,14 @@ export class BinanceWebSocketClient
           (error: Error) => {
 
             if (settled) {
+
               return;
+
             }
 
-            settled = true;
+            settled =
+              true;
+
             reject(error);
 
           };
@@ -120,19 +146,25 @@ export class BinanceWebSocketClient
             if (
               this.socket !== socket
             ) {
+
               socket.close();
+
               return;
+
             }
 
             this.connected =
               true;
 
-            this.resetReconnectAttempts();
+            this.reconnecting =
+              false;
 
             try {
 
               if (this.eventHandler) {
+
                 await this.eventHandler.onConnect();
+
               }
 
               settleResolve();
@@ -153,7 +185,9 @@ export class BinanceWebSocketClient
             if (
               this.socket !== socket
             ) {
+
               return;
+
             }
 
             try {
@@ -165,9 +199,11 @@ export class BinanceWebSocketClient
             } catch (error) {
 
               if (this.eventHandler) {
+
                 await this.eventHandler.onError(
                   error as Error,
                 );
+
               }
 
             }
@@ -180,7 +216,9 @@ export class BinanceWebSocketClient
             if (
               this.socket !== socket
             ) {
+
               return;
+
             }
 
             const error =
@@ -191,9 +229,11 @@ export class BinanceWebSocketClient
             try {
 
               if (this.eventHandler) {
+
                 await this.eventHandler.onError(
                   error,
                 );
+
               }
 
             } catch {
@@ -213,7 +253,9 @@ export class BinanceWebSocketClient
             if (
               this.socket !== socket
             ) {
+
               return;
+
             }
 
             this.socket =
@@ -225,7 +267,9 @@ export class BinanceWebSocketClient
             try {
 
               if (this.eventHandler) {
+
                 await this.eventHandler.onDisconnect();
+
               }
 
             } finally {
@@ -244,6 +288,12 @@ export class BinanceWebSocketClient
   public override async disconnect():
     Promise<void> {
 
+    this.intentionalDisconnect =
+      true;
+
+    this.reconnecting =
+      false;
+
     const socket =
       this.socket;
 
@@ -256,7 +306,9 @@ export class BinanceWebSocketClient
     if (!socket) {
 
       if (this.eventHandler) {
+
         await this.eventHandler.onDisconnect();
+
       }
 
       return;
@@ -264,6 +316,71 @@ export class BinanceWebSocketClient
     }
 
     socket.close();
+
+  }
+
+  public async reconnect():
+    Promise<boolean> {
+
+    if (this.reconnecting) {
+
+      return false;
+
+    }
+
+    if (this.socket) {
+
+      return true;
+
+    }
+
+    this.reconnecting =
+      true;
+
+    try {
+
+      const result =
+        await super.reconnect();
+
+      if (!result) {
+
+        this.reconnecting =
+          false;
+
+      }
+
+      return result;
+
+    } catch (error) {
+
+      this.reconnecting =
+        false;
+
+      if (this.eventHandler) {
+
+        await this.eventHandler.onError(
+          error as Error,
+        );
+
+      }
+
+      return false;
+
+    }
+
+  }
+
+  public isReconnecting():
+    boolean {
+
+    return this.reconnecting;
+
+  }
+
+  public wasIntentionallyDisconnected():
+    boolean {
+
+    return this.intentionalDisconnect;
 
   }
 
@@ -281,15 +398,18 @@ export class BinanceWebSocketClient
       this.subscription.getSymbols();
 
     if (symbols.length === 0) {
+
       return this.url;
+
     }
 
-    const streams = symbols
-      .map(
-        (symbol) =>
-          `${symbol.trim().toLowerCase()}@trade`,
-      )
-      .join("/");
+    const streams =
+      symbols
+        .map(
+          (symbol) =>
+            `${symbol.trim().toLowerCase()}@trade`,
+        )
+        .join("/");
 
     return `${this.url}?streams=${streams}`;
 
